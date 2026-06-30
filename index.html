@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Johnson Farms – Daily Water Order</title>
+<meta name="description" content="Daily irrigation water order calculator for Johnson Farms. Track CFS orders across First West Lateral, Bench Canal, Tanner Canal, and Turner Canal.">
+<style>
+/* ═══════════════════════════════════════════
+   CSS CUSTOM PROPERTIES & RESET
+   ═══════════════════════════════════════════ */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #1a1d23;
+  --text-secondary: #5a6270;
+  --text-muted: #8a919c;
+  --border: #e2e5ea;
+  --border-light: #eef0f3;
+  --accent: #2d7a4f;
+  --accent-light: #e6f5ed;
+  --accent-dark: #1e5a38;
+  --active-row: #e8f8ef;
+  --active-border: #4caf6a;
+  --header-bg: #1b3a2a;
+  --header-text: #ffffff;
+  --summary-bg: #1a1d23;
+  --summary-text: #ffffff;
+  --toggle-off: #ccd1d9;
+  --toggle-on: #2d7a4f;
+  --solid-set-bg: #fef9e7;
+  --solid-set-border: #f0e0a0;
+  --canal-fwl: #e8f0fa;
+  --canal-fwl-header: #3b6fa0;
+  --canal-bench: #fdf5ec;
+  --canal-bench-header: #a07a3b;
+  --canal-tanner: #eaf7ee;
+  --canal-tanner-header: #3b8a55;
+  --canal-turner: #f0ecfa;
+  --canal-turner-header: #6b4fa0;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.1);
+  --transition: 0.2s ease;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════ */
+.app-header {
+  background: var(--header-bg);
+  color: var(--header-text);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.app-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.app-header h1 span {
+  color: #6fcf97;
+  font-weight: 800;
+}
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: center;
+}
+.cut-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cut-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9ab8a8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
+.cut-btn {
+  padding: 7px 16px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.cut-btn:hover {
+  border-color: rgba(255,255,255,0.4);
+  color: #fff;
+  background: rgba(255,255,255,0.08);
+}
+.cut-btn.active {
+  background: #6fcf97;
+  border-color: #6fcf97;
+  color: #1b3a2a;
+  box-shadow: 0 0 12px rgba(111,207,151,0.3);
+}
+.clear-btn {
+  padding: 7px 18px;
+  border: 2px solid rgba(255,100,100,0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: #ff8a8a;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.clear-btn:hover {
+  background: rgba(255,100,100,0.15);
+  border-color: rgba(255,100,100,0.6);
+}
+.header-date {
+  font-size: 0.85rem;
+  color: #9ab8a8;
+  font-weight: 500;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════
+   MAIN LAYOUT — 4 CANAL COLUMNS
+   ═══════════════════════════════════════════ */
+.main-content {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding-bottom: 100px; /* space for summary bar */
+  align-items: start;
+}
+.canal-column {
+  min-width: 280px;
+  border-right: 1px solid var(--border);
+}
+.canal-column:last-child { border-right: none; }
+
+.canal-header {
+  padding: 14px 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  border-bottom: 3px solid;
+}
+.canal-header .canal-total {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-top: 4px;
+  letter-spacing: -0.03em;
+}
+.canal-header .canal-order {
+  display: inline-block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 4px;
+  padding: 3px 14px;
+  border-radius: 20px;
+  background: rgba(0,0,0,0.12);
+}
+
+.canal-cut-override {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.15);
+  color: inherit;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.canal-cut-override option {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.canal-fwl .canal-header { background: var(--canal-fwl); color: var(--canal-fwl-header); border-color: var(--canal-fwl-header); }
+.canal-bench .canal-header { background: var(--canal-bench); color: var(--canal-bench-header); border-color: var(--canal-bench-header); }
+.canal-tanner .canal-header { background: var(--canal-tanner); color: var(--canal-tanner-header); border-color: var(--canal-tanner-header); }
+.canal-turner .canal-header { background: var(--canal-turner); color: var(--canal-turner-header); border-color: var(--canal-turner-header); }
+
+.canal-areas {
+  padding: 8px;
+}
+
+/* ═══════════════════════════════════════════
+   AREA CARDS
+   ═══════════════════════════════════════════ */
+.area-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.area-card.has-active {
+  border-color: var(--active-border);
+  box-shadow: 0 0 0 1px var(--active-border), var(--shadow);
+}
+.area-card.solid-set-on {
+  background: var(--solid-set-bg);
+  border-color: var(--solid-set-border);
+}
+.area-card.solid-set-on.has-active {
+  border-color: #c5a030;
+}
+
+.area-header {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: 8px;
+  transition: background var(--transition);
+}
+.area-header:hover { background: rgba(0,0,0,0.03); }
+.area-card.has-active .area-header { background: var(--accent-light); }
+.area-card.solid-set-on .area-header { background: rgba(240,224,160,0.3); }
+.area-card.solid-set-on.has-active .area-header { background: rgba(240,200,80,0.2); }
+
+.area-chevron {
+  width: 18px;
+  height: 18px;
+  transition: transform var(--transition);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.area-card.expanded .area-chevron { transform: rotate(90deg); }
+
+.area-name {
+  font-size: 0.88rem;
+  font-weight: 650;
+  flex: 1;
+  color: var(--text);
+}
+.area-cfs-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+.area-cfs-badge.zero { color: var(--text-muted); background: var(--border-light); }
+
+/* Solid Set Toggle */
+.ss-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ss-toggle-wrap label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+label.ss-toggle {
+  position: relative;
+  width: 38px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-block;
+  cursor: pointer;
+}
+.ss-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.ss-toggle .slider {
+  position: absolute;
+  inset: 0;
+  background: var(--toggle-off);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.ss-toggle .slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.ss-toggle input:checked + .slider {
+  background: #c5a030;
+}
+.ss-toggle input:checked + .slider::before {
+  transform: translateX(18px);
+}
+
+/* ═══════════════════════════════════════════
+   AREA BODY / CONTROLS
+   ═══════════════════════════════════════════ */
+.area-body {
+  display: none;
+  padding: 6px 10px 10px;
+  border-top: 1px solid var(--border-light);
+}
+.area-card.expanded .area-body { display: block; }
+
+/* Checkbox Row */
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  gap: 8px;
+  transition: background var(--transition);
+  margin-bottom: 2px;
+}
+.ctrl-row.active {
+  background: var(--active-row);
+}
+.ctrl-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ctrl-row .ctrl-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ctrl-row .ctrl-gpm {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ctrl-row .ctrl-cfs {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.ctrl-row.active .ctrl-cfs { color: var(--accent-dark); }
+.ctrl-row:not(.active) .ctrl-cfs { color: var(--text-muted); }
+
+/* Dropdown Row */
+.dropdown-section {
+  margin-bottom: 6px;
+}
+.dropdown-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 8px 4px;
+}
+.dropdown-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+  margin-bottom: 2px;
+}
+.dropdown-row.active {
+  background: var(--active-row);
+}
+.dropdown-row select {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+  transition: border-color var(--transition);
+}
+.dropdown-row select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(45,122,79,0.15);
+}
+.dropdown-row .ctrl-cfs {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.dropdown-row.active .ctrl-cfs { color: var(--accent-dark); }
+.dropdown-row:not(.active) .ctrl-cfs { color: var(--text-muted); }
+
+/* Section dividers within area */
+.ctrl-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 6px 0;
+}
+.ctrl-section-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 8px 2px;
+}
+
+/* ═══════════════════════════════════════════
+   SUMMARY BAR
+   ═══════════════════════════════════════════ */
+.summary-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--summary-bg);
+  color: var(--summary-text);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  z-index: 100;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+  flex-wrap: wrap;
+}
+.summary-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.summary-item .s-canal {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.summary-item .s-total {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.8);
+}
+.summary-item .s-order {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #6fcf97;
+  background: rgba(111,207,151,0.12);
+  padding: 2px 10px;
+  border-radius: 6px;
+}
+.summary-spacer { flex: 1; }
+.copy-btn {
+  padding: 8px 24px;
+  background: #6fcf97;
+  color: #1b3a2a;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.copy-btn:hover {
+  background: #8fd9af;
+  box-shadow: 0 0 12px rgba(111,207,151,0.4);
+}
+.copy-btn.copied {
+  background: #2d7a4f;
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════
+   TOAST NOTIFICATION
+   ═══════════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #333;
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 200;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE CANAL TABS (hidden on desktop)
+   ═══════════════════════════════════════════ */
+.canal-tabs {
+  display: none; /* hidden on desktop */
+  background: var(--summary-bg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.canal-tabs::-webkit-scrollbar { display: none; }
+.canal-tabs-inner {
+  display: flex;
+  min-width: 100%;
+}
+.canal-tab {
+  flex: 1;
+  padding: 10px 8px 8px;
+  text-align: center;
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: rgba(255,255,255,0.5);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.canal-tab.active {
+  color: #fff;
+  border-bottom-color: #6fcf97;
+}
+.canal-tab .tab-order {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #6fcf97;
+  margin-top: 2px;
+}
+.canal-tab:not(.active) .tab-order {
+  color: rgba(111,207,151,0.4);
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — Tablet
+   ═══════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .main-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .canal-column { min-width: 0; }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — Mobile (< 700px)
+   ═══════════════════════════════════════════ */
+@media (max-width: 700px) {
+  html { font-size: 16px; }
+
+  /* Show canal tabs */
+  .canal-tabs {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 99;
+  }
+
+  /* Header stacks vertically */
+  .app-header {
+    position: relative;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px;
+    top: auto;
+  }
+  .app-header h1 { font-size: 1.1rem; }
+  .header-date { margin-left: 0; font-size: 0.78rem; }
+  .cut-group { flex-wrap: wrap; justify-content: center; }
+  .cut-btn { padding: 6px 12px; font-size: 0.82rem; }
+  .clear-btn { padding: 6px 14px; font-size: 0.8rem; }
+
+  /* Single-column layout, hide non-active canals */
+  .main-content {
+    grid-template-columns: 1fr;
+    padding-bottom: 130px;
+  }
+  .canal-column {
+    min-width: 0;
+    border-right: none;
+    display: none; /* JS toggles this */
+  }
+  .canal-column.mobile-active {
+    display: block;
+  }
+  /* Hide canal header on mobile — tabs replace it */
+  .canal-column .canal-header {
+    display: none;
+  }
+
+  /* Larger touch targets */
+  .area-header {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .area-name {
+    font-size: 0.92rem;
+    white-space: normal;
+  }
+  .area-body {
+    padding: 6px 6px 12px;
+  }
+  .ctrl-row {
+    padding: 10px 8px;
+    gap: 10px;
+  }
+  .ctrl-row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+  .ctrl-row .ctrl-name {
+    font-size: 0.88rem;
+    white-space: normal;
+  }
+  .ctrl-row .ctrl-gpm {
+    font-size: 0.75rem;
+  }
+  .ctrl-row .ctrl-cfs {
+    font-size: 0.82rem;
+    min-width: 48px;
+  }
+  .dropdown-row {
+    padding: 6px 8px;
+  }
+  .dropdown-row select {
+    font-size: 0.88rem;
+    padding: 8px 10px;
+  }
+
+  /* Toggle bigger */
+  label.ss-toggle {
+    width: 44px;
+    height: 24px;
+  }
+  .ss-toggle .slider::before {
+    width: 20px;
+    height: 20px;
+  }
+  .ss-toggle input:checked + .slider::before {
+    transform: translateX(20px);
+  }
+
+  /* Summary bar for mobile */
+  .summary-bar {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+    align-items: stretch;
+  }
+  .summary-item {
+    justify-content: space-between;
+  }
+  .summary-spacer { display: none; }
+  .copy-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    text-align: center;
+    margin-top: 4px;
+  }
+}
+
+/* Scrollbar styling */
+.canal-areas::-webkit-scrollbar { width: 4px; }
+.canal-areas::-webkit-scrollbar-track { background: transparent; }
+.canal-areas::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header" id="app-header">
+  <h1><span>Johnson Farms</span> – Daily Water Order</h1>
+  <div class="header-controls">
+    <div class="cut-group">
+      <span class="cut-label">Water Cut</span>
+      <button class="cut-btn" data-cut="450" id="cut-450">450</button>
+      <button class="cut-btn" data-cut="400" id="cut-400">400</button>
+      <button class="cut-btn" data-cut="350" id="cut-350">350</button>
+      <button class="cut-btn" data-cut="300" id="cut-300">300</button>
+    </div>
+    <button class="clear-btn" id="clear-all-btn">Clear All</button>
+  </div>
+  <div class="header-date" id="header-date"></div>
+</header>
+
+<!-- MOBILE CANAL TABS (hidden on desktop, shown on mobile) -->
+<nav class="canal-tabs" id="canal-tabs"></nav>
+
+<!-- MAIN CONTENT — built by JS -->
+<main class="main-content" id="main-content"></main>
+
+<!-- SUMMARY BAR -->
+<div class="summary-bar" id="summary-bar"></div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DATA — All field/system data hardcoded
+   ═══════════════════════════════════════════════════════════════ */
+
+const MULTIPLIERS = { 450: 1.0, 400: 1.12, 350: 1.28, 300: 1.50 };
+
+function cfs(gpm, cut) {
+  return (gpm / 448.8) * MULTIPLIERS[cut];
+}
+
+/*
+  Each area:
+  {
+    name, hasSolidSet,
+    shared:     { checkboxes: [{id, name, gpm}], dropdowns: [{id, label, options:[{name, gpm}]}] },
+    standard:   { checkboxes: [...], dropdowns: [...] },
+    solidSet:   { checkboxes: [...], dropdowns: [...] }
+  }
+  For areas without solid set: everything in standard, solidSet = null, shared empty.
+*/
+
+const CANALS = [
+  // ═══════════════════════════════════════
+  // FIRST WEST LATERAL
+  // ═══════════════════════════════════════
+  {
+    id: 'fwl', name: 'First West Lateral', cssClass: 'canal-fwl',
+    areas: [
+      {
+        id: 'reservoir', name: 'Reservoir', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [
+            { id: 'res_2ww', name: 'West Wheel Line (25 Pipe)', gpm: 155.0 },
+            { id: 'res_23p', name: 'West Wheel Line (23 Pipe)', gpm: 142.6 },
+            { id: 'res_2ew', name: 'East Wheel Line (42 Pipe)', gpm: 260.4 },
+            { id: 'res_15p', name: 'East Wheel Line (15 Pipe)', gpm: 93.0 }
+          ],
+          dropdowns: []
+        },
+        solidSet: null
+      },
+      {
+        id: 'reinke_corner', name: 'Reinke Corner Arm Field Handlines', solidSetName: 'Reinke Corner Arm Field Solid Set', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'rc_pivot', name: 'Reinke Corner Arm (pivot)', gpm: 900.0 },
+            { id: 'rc_tbird', name: 'T Bird Line', gpm: 192.2 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [
+            { id: 'rc_hl_ne12', name: 'NE Corner – 12 pipes', gpm: 74.4 },
+            { id: 'rc_hl_ne5', name: 'NE Corner – 5 pipes', gpm: 31.0 },
+            { id: 'rc_hl_ne1', name: 'NE Corner – 1 pipe', gpm: 6.2 },
+            { id: 'rc_hl_tb8', name: 'Poles by TB – 8 pipes', gpm: 49.6 },
+            { id: 'rc_hl_tb7', name: 'Poles by TB – 7 pipes', gpm: 43.4 },
+            { id: 'rc_hl_tb6a', name: 'Poles by TB – 6 pipes (a)', gpm: 37.2 },
+            { id: 'rc_hl_tb6b', name: 'Poles by TB – 6 pipes (b)', gpm: 37.2 },
+            { id: 'rc_hl_tb6c', name: 'Poles by TB – 6 pipes (c)', gpm: 37.2 },
+            { id: 'rc_hl_tb5a', name: 'Poles by TB – 5 pipes (a)', gpm: 31.0 },
+            { id: 'rc_hl_tb5b', name: 'Poles by TB – 5 pipes (b)', gpm: 31.0 }
+          ],
+          dropdowns: []
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'rc_ss_ne12', name: 'NE Corner – 12 pipes', gpm: 50.4 },
+            { id: 'rc_ss_ne5', name: 'NE Corner – 5 pipes', gpm: 21.0 },
+            { id: 'rc_ss_ne1', name: 'NE Corner – 1 pipe', gpm: 4.2 },
+            { id: 'rc_ss_tb8', name: 'Poles by TB – 8 pipes', gpm: 33.6 },
+            { id: 'rc_ss_tb7', name: 'Poles by TB – 7 pipes', gpm: 29.4 },
+            { id: 'rc_ss_tb6a', name: 'Poles by TB – 6 pipes (a)', gpm: 25.2 },
+            { id: 'rc_ss_tb6b', name: 'Poles by TB – 6 pipes (b)', gpm: 25.2 },
+            { id: 'rc_ss_tb6c', name: 'Poles by TB – 6 pipes (c)', gpm: 25.2 },
+            { id: 'rc_ss_tb5a', name: 'Poles by TB – 5 pipes (a)', gpm: 21.0 },
+            { id: 'rc_ss_tb5b', name: 'Poles by TB – 5 pipes (b)', gpm: 21.0 }
+          ],
+          dropdowns: []
+        }
+      },
+      {
+        id: 'mini_reinke', name: 'Mini Reinke', solidSetName: 'Mini Reinke', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'mr_pivot', name: 'Mini Reinke (pivot)', gpm: 185.0 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [
+            { id: 'mr_hl_a5', name: 'Arena – 5 pipes', gpm: 31.0 },
+            { id: 'mr_hl_a4a', name: 'Arena – 4 pipes (a)', gpm: 24.8 },
+            { id: 'mr_hl_a4b', name: 'Arena – 4 pipes (b)', gpm: 24.8 },
+            { id: 'mr_hl_a3a', name: 'Arena – 3 pipes (a)', gpm: 18.6 },
+            { id: 'mr_hl_a3b', name: 'Arena – 3 pipes (b)', gpm: 18.6 },
+            { id: 'mr_hl_a3c', name: 'Arena – 3 pipes (c)', gpm: 18.6 },
+            { id: 'mr_hl_a3d', name: 'Arena – 3 pipes (d)', gpm: 18.6 },
+            { id: 'mr_hl_a4c', name: 'Arena – 4 pipes (c)', gpm: 24.8 },
+            { id: 'mr_hl_a4d', name: 'Arena – 4 pipes (d)', gpm: 24.8 }
+          ],
+          dropdowns: []
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'mr_ss_a5', name: 'Arena – 5 pipes', gpm: 21.0 },
+            { id: 'mr_ss_a4a', name: 'Arena – 4 pipes (a)', gpm: 16.8 },
+            { id: 'mr_ss_a4b', name: 'Arena – 4 pipes (b)', gpm: 16.8 },
+            { id: 'mr_ss_a3a', name: 'Arena – 3 pipes (a)', gpm: 12.6 },
+            { id: 'mr_ss_a3b', name: 'Arena – 3 pipes (b)', gpm: 12.6 },
+            { id: 'mr_ss_a3c', name: 'Arena – 3 pipes (c)', gpm: 12.6 },
+            { id: 'mr_ss_a3d', name: 'Arena – 3 pipes (d)', gpm: 12.6 },
+            { id: 'mr_ss_a4c', name: 'Arena – 4 pipes (c)', gpm: 16.8 },
+            { id: 'mr_ss_a4d', name: 'Arena – 4 pipes (d)', gpm: 16.8 }
+          ],
+          dropdowns: []
+        }
+      },
+      {
+        id: 'tarbet_pivot', name: 'Tarbet Field', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [
+            { id: 'tp_pivot', name: 'Tarbet Pivot', gpm: 680.0 },
+            { id: 'twl_ptbird', name: 'Pivot T-Bird Wheel Line', gpm: 192.2 },
+            { id: 'twl_tbird', name: 'Tarbet Thunderbird North', gpm: 105.4 },
+            { id: 'twl_western', name: 'Tarbet Western South', gpm: 49.6 }
+          ],
+          dropdowns: []
+        },
+        solidSet: null
+      },
+
+      {
+        id: 'hansen_pivot', name: 'Hansen Field', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'hp_pivot', name: 'Hansen Pivot', gpm: 800.0 },
+            { id: 'hp_cellar_long', name: 'Cellar Long Hand Line', gpm: 142.6 },
+            { id: 'hp_cellar_short', name: 'Cellar Short Hand Line', gpm: 49.6 },
+            { id: 'hp_gm_wl', name: 'Gray Manor Wheel Line', gpm: 93.0 },
+            { id: 'hp_gm_hl', name: 'Gray Manor Hand Line', gpm: 86.8 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [
+            { id: 'hp_eoc_11', name: 'East of Old Canal – 11 pipes', gpm: 68.2 },
+            { id: 'hp_eoc_7', name: 'East of Old Canal – 7 pipes', gpm: 43.4 }
+          ],
+          dropdowns: []
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'hp_ss_nw', name: 'NW Side of Power Poles – 13 pipes', gpm: 54.6 },
+            { id: 'hp_ss_ne_11a', name: 'NE of Power Poles – 11 pipes (a)', gpm: 46.2 },
+            { id: 'hp_ss_ne_11b', name: 'NE of Power Poles – 11 pipes (b)', gpm: 46.2 },
+            { id: 'hp_ss_ne_9', name: 'NE of Power Poles – 9 pipes', gpm: 37.8 },
+            { id: 'hp_ss_ne_8', name: 'NE of Power Poles – 8 pipes', gpm: 33.6 },
+            { id: 'hp_ss_ne_7a', name: 'NE of Power Poles – 7 pipes (a)', gpm: 29.4 },
+            { id: 'hp_ss_ne_7b', name: 'NE of Power Poles – 7 pipes (b)', gpm: 29.4 },
+            { id: 'hp_ss_ne_6a', name: 'NE of Power Poles – 6 pipes (a)', gpm: 25.2 },
+            { id: 'hp_ss_ne_6b', name: 'NE of Power Poles – 6 pipes (b)', gpm: 25.2 },
+            { id: 'hp_ss_ne_5', name: 'NE of Power Poles – 5 pipes', gpm: 21.0 },
+            { id: 'hp_ss_ne_4a', name: 'NE of Power Poles – 4 pipes (a)', gpm: 16.8 },
+            { id: 'hp_ss_ne_4b', name: 'NE of Power Poles – 4 pipes (b)', gpm: 16.8 },
+            { id: 'hp_ss_ne_4c', name: 'NE of Power Poles – 4 pipes (c)', gpm: 16.8 },
+            { id: 'hp_ss_ne_3a', name: 'NE of Power Poles – 3 pipes (a)', gpm: 12.6 },
+            { id: 'hp_ss_ne_3b', name: 'NE of Power Poles – 3 pipes (b)', gpm: 12.6 },
+            { id: 'hp_ss_ne_3c', name: 'NE of Power Poles – 3 pipes (c)', gpm: 12.6 },
+            { id: 'hp_ss_ne_2a', name: 'NE of Power Poles – 2 pipes (a)', gpm: 8.4 },
+            { id: 'hp_ss_ne_2b', name: 'NE of Power Poles – 2 pipes (b)', gpm: 8.4 },
+            { id: 'hp_ss_ne_2c', name: 'NE of Power Poles – 2 pipes (c)', gpm: 8.4 },
+            { id: 'hp_ss_cellar_35', name: 'Next to White Cellar – 35 pipes', gpm: 147.0 },
+            { id: 'hp_ss_cellar_22', name: 'Next to White Cellar – 22 pipes', gpm: 92.4 },
+            { id: 'hp_ss_cellar_19', name: 'Next to White Cellar – 19 pipes', gpm: 79.8 },
+            { id: 'hp_ss_cellar_14', name: 'Next to White Cellar – 14 pipes', gpm: 58.8 },
+            { id: 'hp_ss_cellar_12', name: 'Next to White Cellar – 12 pipes', gpm: 50.4 },
+            { id: 'hp_ss_cellar_10', name: 'Next to White Cellar – 10 pipes', gpm: 42.0 },
+            { id: 'hp_ss_cellar_7', name: 'Next to White Cellar – 7 pipes', gpm: 29.4 },
+            { id: 'hp_ss_cellar_4', name: 'Next to White Cellar – 4 pipes', gpm: 16.8 }
+          ],
+          dropdowns: []
+        }
+      },
+      {
+        id: 'acre25_corner', name: '25 Acre Corner', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'oc_wl', label: 'Wheel Lines',
+              options: [
+                { name: '1 Wheel Line', gpm: 204.6 },
+                { name: '2 Wheel Lines', gpm: 409.2 }
+              ]
+            }
+          ]
+        },
+        solidSet: null
+      },
+      {
+        id: 'olsen_field', name: 'Olsen Field', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'op_pivot', name: 'Olsen Pivot', gpm: 600.0 },
+            { id: 'op_tbird', name: 'T-Bird Wheel Line', gpm: 186.0 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [
+            { id: 'op_ehl', name: 'East Hand Line – 17 pipes', gpm: 105.4 }
+          ],
+          dropdowns: []
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'op_ss_ehl', name: 'East Hand Line – 17 pipes', gpm: 71.4 }
+          ],
+          dropdowns: [
+            {
+              id: 'op_ss_field', label: 'Field Pipes',
+              options: [
+                { name: '15 pipes', gpm: 63.0 },
+                { name: '14 pipes', gpm: 58.8 },
+                { name: '11 pipes', gpm: 46.2 },
+                { name: '8 pipes', gpm: 33.6 },
+                { name: '6 pipes', gpm: 25.2 },
+                { name: '5 pipes', gpm: 21.0 },
+                { name: '4 pipes', gpm: 16.8 },
+                { name: '3 pipes', gpm: 12.6 }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        id: 'norms_house', name: "Norm's House", hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [
+            { id: 'nh_long', name: 'Long Line', gpm: 136.4 },
+            { id: 'nh_short', name: 'Short Line', gpm: 62.0 },
+            { id: 'nh_25acre', name: '2.5 Acre Piece – 17 pipes', gpm: 105.4 }
+          ],
+          dropdowns: []
+        },
+        solidSet: null
+      },
+      {
+        id: 'peterson_place', name: 'Peterson Place', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'pp_wl', label: 'Wheel Lines',
+              options: [
+                { name: '1 Wheel Line', gpm: 198.4 },
+                { name: '2 Wheel Lines', gpm: 396.8 },
+                { name: '3 Wheel Lines', gpm: 589.0 }
+              ]
+            }
+          ]
+        },
+        solidSet: null
+      }
+    ]
+  },
+  // ═══════════════════════════════════════
+  // BENCH CANAL
+  // ═══════════════════════════════════════
+  {
+    id: 'bench', name: 'Bench Canal', cssClass: 'canal-bench',
+    areas: [
+      {
+        id: 'pond_place', name: 'Pond Place', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [
+            { id: 'pond_nw', name: 'NW Wheel Line', gpm: 204.6 },
+            { id: 'pond_sw', name: 'SW Wheel Lines', gpm: 217.0 },
+            { id: 'pond_ne', name: 'NE Wheel Lines', gpm: 229.4 },
+            { id: 'pond_se', name: 'SE Wheel Lines', gpm: 217.0 }
+          ],
+          dropdowns: []
+        },
+        solidSet: null
+      },
+      {
+        id: 'christensen', name: 'Christensen Place', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'chr_wl', label: 'Wheel Lines',
+              options: [
+                { name: '1 Wheel Line', gpm: 192.2 },
+                { name: '2 Wheel Lines', gpm: 384.4 }
+              ]
+            }
+          ]
+        },
+        solidSet: null
+      },
+      {
+        id: 'lloyd_place', name: 'Lloyd Hand Lines', solidSetName: 'Lloyd Solid Set', hasSolidSet: true,
+        shared: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'lloyd_wl', label: 'Wheel Lines',
+              options: [
+                { name: '1 Wheel Line', gpm: 186.0 },
+                { name: '2 Wheel Lines', gpm: 372.0 },
+                { name: '3 Wheel Lines', gpm: 558.0 },
+                { name: '4 Wheel Lines', gpm: 744.0 }
+              ]
+            }
+          ]
+        },
+        standard: {
+          checkboxes: [
+            { id: 'lloyd_hl_e1', name: 'East Line 1 (30 pipes)', gpm: 186.0 },
+            { id: 'lloyd_hl_e2', name: 'East Line 2 (30 pipes)', gpm: 186.0 },
+            { id: 'lloyd_hl_e3', name: 'East Line 3 (31 pipes)', gpm: 192.2 },
+            { id: 'lloyd_hl_e4', name: 'East Line 4 (31 pipes)', gpm: 192.2 },
+            { id: 'lloyd_hl_e5', name: 'East Line 5 (31 pipes)', gpm: 192.2 },
+            { id: 'lloyd_hl_e6', name: 'East Line 6 (30 pipes)', gpm: 186.0 },
+            { id: 'lloyd_hl_w1', name: 'West Line 1 (20 pipes)', gpm: 124.0 },
+            { id: 'lloyd_hl_w2', name: 'West Line 2 (19 pipes)', gpm: 117.8 },
+            { id: 'lloyd_hl_w3', name: 'West Line 3 (26 pipes)', gpm: 161.2 },
+            { id: 'lloyd_hl_w4', name: 'West Line 4 (26 pipes)', gpm: 161.2 },
+            { id: 'lloyd_hl_w5', name: 'West Line 5 (26 pipes)', gpm: 161.2 },
+            { id: 'lloyd_hl_w6', name: 'West Line 6 (26 pipes)', gpm: 161.2 }
+          ],
+          dropdowns: []
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'lloyd_ss_e1', name: 'East Line 1 (30 pipes)', gpm: 126.0 },
+            { id: 'lloyd_ss_e2', name: 'East Line 2 (30 pipes)', gpm: 126.0 },
+            { id: 'lloyd_ss_e3', name: 'East Line 3 (31 pipes)', gpm: 130.2 },
+            { id: 'lloyd_ss_e4', name: 'East Line 4 (31 pipes)', gpm: 130.2 },
+            { id: 'lloyd_ss_e5', name: 'East Line 5 (31 pipes)', gpm: 130.2 },
+            { id: 'lloyd_ss_e6', name: 'East Line 6 (30 pipes)', gpm: 126.0 },
+            { id: 'lloyd_ss_w1', name: 'West Line 1 (20 pipes)', gpm: 84.0 },
+            { id: 'lloyd_ss_w2', name: 'West Line 2 (19 pipes)', gpm: 79.8 },
+            { id: 'lloyd_ss_w3', name: 'West Line 3 (26 pipes)', gpm: 109.2 },
+            { id: 'lloyd_ss_w4', name: 'West Line 4 (26 pipes)', gpm: 109.2 },
+            { id: 'lloyd_ss_w5', name: 'West Line 5 (26 pipes)', gpm: 109.2 },
+            { id: 'lloyd_ss_w6', name: 'West Line 6 (26 pipes)', gpm: 109.2 }
+          ],
+          dropdowns: []
+        }
+      }
+    ]
+  },
+  // ═══════════════════════════════════════
+  // TANNER CANAL
+  // ═══════════════════════════════════════
+  {
+    id: 'tanner', name: 'Tanner Canal', cssClass: 'canal-tanner',
+    areas: [
+      {
+        id: 'upper_nelson', name: 'Upper Nelson Pivot', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [
+            { id: 'un_pivot', name: 'Upper Nelson Pivot', gpm: 920.0 }
+          ],
+          dropdowns: []
+        },
+        solidSet: null
+      },
+      {
+        id: 'lower_nelson', name: 'Lower Nelson Pivot', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'ln_pivot', name: 'Lower Nelson Pivot', gpm: 600.0 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'ln_longhl', label: 'Long Hand Line',
+              options: [
+                { name: '13 pipes (A)', gpm: 80.6 },
+                { name: '13 pipes (B)', gpm: 80.6 },
+                { name: '12 pipes', gpm: 74.4 },
+                { name: '10 pipes', gpm: 62.0 },
+                { name: '8 pipes', gpm: 49.6 }
+              ]
+            },
+            {
+              id: 'ln_shorthl', label: 'Short Hand Line',
+              options: [
+                { name: '7 pipes', gpm: 43.4 },
+                { name: '4 pipes (A)', gpm: 24.8 },
+                { name: '4 pipes (B)', gpm: 24.8 },
+                { name: '3 pipes', gpm: 18.6 },
+                { name: '2 pipes', gpm: 12.4 }
+              ]
+            }
+          ]
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'ln_ss_13a', name: '13 pipes (a)', gpm: 54.6 },
+            { id: 'ln_ss_13b', name: '13 pipes (b)', gpm: 54.6 },
+            { id: 'ln_ss_12', name: '12 pipes', gpm: 50.4 },
+            { id: 'ln_ss_10', name: '10 pipes', gpm: 42.0 },
+            { id: 'ln_ss_8', name: '8 pipes', gpm: 33.6 },
+            { id: 'ln_ss_7', name: '7 pipes', gpm: 29.4 },
+            { id: 'ln_ss_4a', name: '4 pipes (a)', gpm: 16.8 },
+            { id: 'ln_ss_4b', name: '4 pipes (b)', gpm: 16.8 },
+            { id: 'ln_ss_3', name: '3 pipes', gpm: 12.6 },
+            { id: 'ln_ss_2', name: '2 pipes', gpm: 8.4 }
+          ],
+          dropdowns: []
+        }
+      },
+      {
+        id: 'kimball_pivot', name: 'Kimball Pivot', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'kp_pivot', name: 'Kimball Pivot', gpm: 600.0 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'kp_hl_pipes', label: 'Hand Line Pipes',
+              options: [
+                { name: '1 pipe', gpm: 6.2 },
+                { name: '2 pipes', gpm: 12.4 },
+                { name: '3 pipes', gpm: 18.6 },
+                { name: '4 pipes', gpm: 24.8 },
+                { name: '5 pipes', gpm: 31.0 },
+                { name: '6 pipes', gpm: 37.2 },
+                { name: '7 pipes', gpm: 43.4 },
+                { name: '8 pipes', gpm: 49.6 },
+                { name: '9 pipes', gpm: 55.8 },
+                { name: '10 pipes', gpm: 62.0 },
+                { name: '11 pipes', gpm: 68.2 },
+                { name: '12 pipes', gpm: 74.4 },
+                { name: '13 pipes', gpm: 80.6 },
+                { name: '14 pipes', gpm: 86.8 },
+                { name: '15 pipes', gpm: 93.0 },
+                { name: '16 pipes', gpm: 99.2 },
+                { name: '17 pipes', gpm: 105.4 },
+                { name: '18 pipes', gpm: 111.6 },
+                { name: '19 pipes', gpm: 117.8 },
+                { name: '20 pipes', gpm: 124.0 }
+              ]
+            }
+          ]
+        },
+        solidSet: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'kp_ss_pipes', label: 'Solid Set Pipes',
+              options: [
+                { name: '1 pipe', gpm: 4.2 },
+                { name: '2 pipes', gpm: 8.4 },
+                { name: '3 pipes', gpm: 12.6 },
+                { name: '4 pipes', gpm: 16.8 },
+                { name: '5 pipes', gpm: 21.0 },
+                { name: '6 pipes', gpm: 25.2 },
+                { name: '7 pipes', gpm: 29.4 },
+                { name: '8 pipes', gpm: 33.6 },
+                { name: '9 pipes', gpm: 37.8 },
+                { name: '10 pipes', gpm: 42.0 },
+                { name: '11 pipes', gpm: 46.2 },
+                { name: '12 pipes', gpm: 50.4 },
+                { name: '13 pipes', gpm: 54.6 },
+                { name: '14 pipes', gpm: 58.8 },
+                { name: '15 pipes', gpm: 63.0 },
+                { name: '16 pipes', gpm: 67.2 },
+                { name: '17 pipes', gpm: 71.4 },
+                { name: '18 pipes', gpm: 75.6 },
+                { name: '19 pipes', gpm: 79.8 },
+                { name: '20 pipes', gpm: 84.0 }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  // ═══════════════════════════════════════
+  // TURNER CANAL
+  // ═══════════════════════════════════════
+  {
+    id: 'turner', name: 'Turner Canal', cssClass: 'canal-turner',
+    areas: [
+      {
+        id: 'hamp_pivot', name: 'Hamp Pivot', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'hamp_pivot_cb', name: 'Hamp Pivot', gpm: 300.0 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'hamp_ehl', label: 'East Hand Line',
+              options: [
+                { name: '12 pipes', gpm: 74.4 },
+                { name: '11 pipes', gpm: 68.2 },
+                { name: '8 pipes', gpm: 49.6 },
+                { name: '7 pipes', gpm: 43.4 },
+                { name: '5 pipes', gpm: 31.0 }
+              ]
+            },
+            {
+              id: 'hamp_whl', label: 'West Hand Line',
+              options: [
+                { name: '24 pipes', gpm: 148.8 },
+                { name: '22 pipes', gpm: 136.4 },
+                { name: '21 pipes', gpm: 130.2 },
+                { name: '16 pipes', gpm: 99.2 },
+                { name: '10 pipes', gpm: 62.0 },
+                { name: '6 pipes (A)', gpm: 37.2 },
+                { name: '6 pipes (B)', gpm: 37.2 }
+              ]
+            }
+          ]
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'hamp_ss_e12', name: 'East – 12 pipes', gpm: 50.4 },
+            { id: 'hamp_ss_e11', name: 'East – 11 pipes', gpm: 46.2 },
+            { id: 'hamp_ss_e8', name: 'East – 8 pipes', gpm: 33.6 },
+            { id: 'hamp_ss_e7', name: 'East – 7 pipes', gpm: 29.4 },
+            { id: 'hamp_ss_e5', name: 'East – 5 pipes', gpm: 21.0 },
+            { id: 'hamp_ss_w30', name: 'West – 30 pipes', gpm: 126.0 },
+            { id: 'hamp_ss_w29a', name: 'West – 29 pipes (a)', gpm: 121.8 },
+            { id: 'hamp_ss_w29b', name: 'West – 29 pipes (b)', gpm: 121.8 },
+            { id: 'hamp_ss_w28', name: 'West – 28 pipes', gpm: 117.6 },
+            { id: 'hamp_ss_w5', name: 'West – 5 pipes', gpm: 21.0 }
+          ],
+          dropdowns: []
+        }
+      },
+      {
+        id: 'sorensen_pivot', name: 'Sorensen Pivot', hasSolidSet: true,
+        shared: {
+          checkboxes: [
+            { id: 'sor_pivot', name: 'Sorensen Pivot', gpm: 440.0 }
+          ],
+          dropdowns: []
+        },
+        standard: {
+          checkboxes: [
+            { id: 'sor_e18', name: 'East – 18 pipes', gpm: 111.6 },
+            { id: 'sor_e15', name: 'East – 15 pipes', gpm: 93.0 },
+            { id: 'sor_e11', name: 'East – 11 pipes', gpm: 68.2 },
+            { id: 'sor_e9', name: 'East – 9 pipes', gpm: 55.8 },
+            { id: 'sor_e7', name: 'East – 7 pipes', gpm: 43.4 },
+            { id: 'sor_e5', name: 'East – 5 pipes', gpm: 31.0 },
+            { id: 'sor_e3', name: 'East – 3 pipes', gpm: 18.6 },
+            { id: 'sor_e2a', name: 'East – 2 pipes (a)', gpm: 12.4 },
+            { id: 'sor_e1', name: 'East – 1 pipe', gpm: 6.2 },
+            { id: 'sor_e2b', name: 'East – 2 pipes (b)', gpm: 12.4 },
+            { id: 'sor_w24', name: 'West – 24 pipes', gpm: 148.8 },
+            { id: 'sor_w22', name: 'West – 22 pipes', gpm: 136.4 },
+            { id: 'sor_w21', name: 'West – 21 pipes', gpm: 130.2 },
+            { id: 'sor_w16', name: 'West – 16 pipes', gpm: 99.2 },
+            { id: 'sor_w10', name: 'West – 10 pipes', gpm: 62.0 },
+            { id: 'sor_w6a', name: 'West – 6 pipes (a)', gpm: 37.2 },
+            { id: 'sor_w6b', name: 'West – 6 pipes (b)', gpm: 37.2 }
+          ],
+          dropdowns: []
+        },
+        solidSet: {
+          checkboxes: [
+            { id: 'sor_ss_13a', name: '13 pipes (a)', gpm: 54.6 },
+            { id: 'sor_ss_13b', name: '13 pipes (b)', gpm: 54.6 },
+            { id: 'sor_ss_12', name: '12 pipes', gpm: 50.4 },
+            { id: 'sor_ss_10', name: '10 pipes', gpm: 42.0 },
+            { id: 'sor_ss_8', name: '8 pipes', gpm: 33.6 },
+            { id: 'sor_ss_7', name: '7 pipes', gpm: 29.4 },
+            { id: 'sor_ss_4a', name: '4 pipes (a)', gpm: 16.8 },
+            { id: 'sor_ss_4b', name: '4 pipes (b)', gpm: 16.8 },
+            { id: 'sor_ss_3', name: '3 pipes', gpm: 12.6 },
+            { id: 'sor_ss_2', name: '2 pipes', gpm: 8.4 }
+          ],
+          dropdowns: []
+        }
+      },
+      {
+        id: 'sorensen_wl', name: 'Sorensen Wheel Lines', hasSolidSet: false,
+        shared: { checkboxes: [], dropdowns: [] },
+        standard: {
+          checkboxes: [],
+          dropdowns: [
+            {
+              id: 'sor_wl', label: 'Wheel Lines',
+              options: [
+                { name: '1 Wheel Line', gpm: 192.2 },
+                { name: '2 Wheel Lines', gpm: 384.4 },
+                { name: '3 Wheel Lines', gpm: 576.6 },
+                { name: '4 Wheel Lines', gpm: 768.8 },
+                { name: '5 Wheel Lines', gpm: 1153.2 }
+              ]
+            }
+          ]
+        },
+        solidSet: null
+      }
+    ]
+  }
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE MANAGEMENT
+   ═══════════════════════════════════════════════════════════════ */
+const STORAGE_KEY = 'jf_water_order_v4';
+
+let state = {
+  waterCut: 400,
+  checkboxes: {},   // { controlId: true/false }
+  dropdowns: {},    // { controlId: optionIndex (0 = None) }
+  solidSets: {},    // { areaId: true/false }
+  canalCuts: {},    // { canalId: cutValue } — per-canal water cut overrides
+  expanded: {},     // { areaId: true/false } — UI-only, not critical
+  mobileCanal: 0    // index of active canal tab on mobile
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      state = { ...state, ...parsed };
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { /* ignore */ }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDERING
+   ═══════════════════════════════════════════════════════════════ */
+
+const chevronSVG = `<svg class="area-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+function renderCheckbox(cb, cut) {
+  const checked = state.checkboxes[cb.id] || false;
+  const cfsVal = checked ? cfs(cb.gpm, cut) : 0;
+  const activeClass = checked ? ' active' : '';
+  return `<div class="ctrl-row${activeClass}" data-ctrl-id="${cb.id}">
+    <input type="checkbox" id="cb_${cb.id}" ${checked ? 'checked' : ''} data-type="checkbox" data-id="${cb.id}">
+    <label class="ctrl-name" for="cb_${cb.id}">${cb.name}</label>
+    <span class="ctrl-gpm">${cb.gpm.toFixed(1)} GPM</span>
+    <span class="ctrl-cfs" data-cfs-id="${cb.id}">${cfsVal.toFixed(2)}</span>
+  </div>`;
+}
+
+function renderDropdown(dd, cut) {
+  const selIdx = state.dropdowns[dd.id] || 0;
+  const activeOpt = selIdx > 0 ? dd.options[selIdx - 1] : null;
+  const cfsVal = activeOpt ? cfs(activeOpt.gpm, cut) : 0;
+  const activeClass = selIdx > 0 ? ' active' : '';
+
+  let optionsHTML = `<option value="0">None</option>`;
+  dd.options.forEach((opt, i) => {
+    const optCfs = cfs(opt.gpm, cut);
+    const selected = (i + 1) === selIdx ? ' selected' : '';
+    optionsHTML += `<option value="${i+1}"${selected}>${opt.name} – ${opt.gpm.toFixed(1)} GPM</option>`;
+  });
+
+  return `<div class="dropdown-section">
+    <div class="dropdown-label">${dd.label}</div>
+    <div class="dropdown-row${activeClass}" data-ctrl-id="${dd.id}">
+      <select data-type="dropdown" data-id="${dd.id}">${optionsHTML}</select>
+      <span class="ctrl-cfs" data-cfs-id="${dd.id}">${cfsVal.toFixed(2)}</span>
+    </div>
+  </div>`;
+}
+
+function renderControls(section, cut) {
+  if (!section) return '';
+  let html = '';
+  section.checkboxes.forEach(cb => { html += renderCheckbox(cb, cut); });
+  section.dropdowns.forEach(dd => { html += renderDropdown(dd, cut); });
+  return html;
+}
+
+function getAreaCFS(area, cut) {
+  let total = 0;
+  const isSS = state.solidSets[area.id] || false;
+
+  // Shared controls always count
+  if (area.shared) {
+    area.shared.checkboxes.forEach(cb => {
+      if (state.checkboxes[cb.id]) total += cfs(cb.gpm, cut);
+    });
+    area.shared.dropdowns.forEach(dd => {
+      const idx = state.dropdowns[dd.id] || 0;
+      if (idx > 0) total += cfs(dd.options[idx-1].gpm, cut);
+    });
+  }
+
+  // Mode-specific controls
+  const modeSection = isSS ? area.solidSet : area.standard;
+  if (modeSection) {
+    modeSection.checkboxes.forEach(cb => {
+      if (state.checkboxes[cb.id]) total += cfs(cb.gpm, cut);
+    });
+    modeSection.dropdowns.forEach(dd => {
+      const idx = state.dropdowns[dd.id] || 0;
+      if (idx > 0) total += cfs(dd.options[idx-1].gpm, cut);
+    });
+  }
+
+  return total;
+}
+
+function isAreaActive(area) {
+  const isSS = state.solidSets[area.id] || false;
+
+  // Check shared
+  if (area.shared) {
+    for (const cb of area.shared.checkboxes) { if (state.checkboxes[cb.id]) return true; }
+    for (const dd of area.shared.dropdowns) { if ((state.dropdowns[dd.id] || 0) > 0) return true; }
+  }
+
+  const modeSection = isSS ? area.solidSet : area.standard;
+  if (modeSection) {
+    for (const cb of modeSection.checkboxes) { if (state.checkboxes[cb.id]) return true; }
+    for (const dd of modeSection.dropdowns) { if ((state.dropdowns[dd.id] || 0) > 0) return true; }
+  }
+
+  return false;
+}
+
+function renderArea(area, cut) {
+  const isSS = state.solidSets[area.id] || false;
+  const active = isAreaActive(area);
+  const expanded = state.expanded[area.id] !== undefined ? state.expanded[area.id] : true;
+  const areaCFS = getAreaCFS(area, cut);
+
+  let classes = 'area-card';
+  if (active) classes += ' has-active';
+  if (expanded) classes += ' expanded';
+  if (isSS) classes += ' solid-set-on';
+
+  // Solid set toggle HTML
+  let ssToggle = '';
+  if (area.hasSolidSet) {
+    ssToggle = `<div class="ss-toggle-wrap" onclick="event.stopPropagation()">
+      <label for="ss_${area.id}">Solid Set</label>
+      <label class="ss-toggle">
+        <input type="checkbox" id="ss_${area.id}" ${isSS ? 'checked' : ''} data-type="solidset" data-area-id="${area.id}">
+        <span class="slider"></span>
+      </label>
+    </div>`;
+  }
+
+  // Build controls
+  let controlsHTML = '';
+
+  // Shared controls first
+  if (area.shared && (area.shared.checkboxes.length > 0 || area.shared.dropdowns.length > 0)) {
+    controlsHTML += renderControls(area.shared, cut);
+    // Add divider if there are mode-specific controls
+    const modeSection = isSS ? area.solidSet : area.standard;
+    if (modeSection && (modeSection.checkboxes.length > 0 || modeSection.dropdowns.length > 0)) {
+      controlsHTML += '<div class="ctrl-divider"></div>';
+      const sectionLabel = isSS ? 'Solid Set Lines' : 'Handlines';
+      controlsHTML += `<div class="ctrl-section-label">${sectionLabel}</div>`;
+    }
+  }
+
+  // Mode-specific controls
+  const modeSection = isSS ? area.solidSet : area.standard;
+  if (modeSection) {
+    // Add Select All if there are 5+ checkboxes
+    if (modeSection.checkboxes.length >= 5) {
+      const allChecked = modeSection.checkboxes.every(cb => state.checkboxes[cb.id]);
+      controlsHTML += `<div class="ctrl-row select-all-row" onclick="event.stopPropagation()">
+        <input type="checkbox" id="sa_${area.id}" ${allChecked ? 'checked' : ''} data-type="selectall" data-area-id="${area.id}">
+        <label class="ctrl-name" for="sa_${area.id}" style="font-weight:700;font-style:italic;">Select All</label>
+      </div>`;
+    }
+    controlsHTML += renderControls(modeSection, cut);
+  }
+
+  const cfsBadgeClass = areaCFS > 0 ? 'area-cfs-badge' : 'area-cfs-badge zero';
+
+  return `<div class="${classes}" id="area_${area.id}" data-area-id="${area.id}">
+    <div class="area-header" data-toggle-area="${area.id}">
+      ${chevronSVG}
+      <span class="area-name">${(isSS && area.solidSetName) ? area.solidSetName : area.name}</span>
+      ${ssToggle}
+      <span class="${cfsBadgeClass}" data-area-cfs="${area.id}">${areaCFS.toFixed(2)} CFS</span>
+    </div>
+    <div class="area-body">${controlsHTML}</div>
+  </div>`;
+}
+
+function getEffectiveCut(canalId) {
+  return state.canalCuts[canalId] || state.waterCut;
+}
+
+function renderCanal(canal, globalCut) {
+  const cut = getEffectiveCut(canal.id);
+  let total = 0;
+  canal.areas.forEach(a => { total += getAreaCFS(a, cut); });
+  const order = total > 0 ? Math.ceil(total) : 0;
+
+  let areasHTML = '';
+  canal.areas.forEach(a => { areasHTML += renderArea(a, cut); });
+
+  // Per-canal cut override dropdown
+  const cutOptions = [450, 400, 350, 300];
+  const hasCanalOverride = state.canalCuts[canal.id] !== undefined;
+  let cutOverrideHTML = `<select class="canal-cut-override" data-canal-cut="${canal.id}">
+    <option value=""${!hasCanalOverride ? ' selected' : ''}>Global (${globalCut})</option>`;
+  cutOptions.forEach(v => {
+    const sel = (hasCanalOverride && state.canalCuts[canal.id] === v) ? ' selected' : '';
+    cutOverrideHTML += `<option value="${v}"${sel}>${v} GPM</option>`;
+  });
+  cutOverrideHTML += '</select>';
+
+  return `<div class="canal-column ${canal.cssClass}" data-canal-id="${canal.id}">
+    <div class="canal-header">
+      ${canal.name}
+      ${cutOverrideHTML}
+      <span class="canal-total" data-canal-total="${canal.id}">${total.toFixed(2)}</span>
+      <span class="canal-order" data-canal-order="${canal.id}">Order: ${order} CFS</span>
+    </div>
+    <div class="canal-areas">${areasHTML}</div>
+  </div>`;
+}
+
+function renderAll() {
+  const cut = state.waterCut;
+  const main = document.getElementById('main-content');
+  let html = '';
+  CANALS.forEach(c => { html += renderCanal(c, cut); });
+  main.innerHTML = html;
+  renderMobileTabs();
+  applyMobileVisibility();
+  renderSummary();
+  updateCutButtons();
+  bindEvents();
+}
+
+function isMobile() {
+  return window.innerWidth <= 700;
+}
+
+function renderMobileTabs() {
+  const tabBar = document.getElementById('canal-tabs');
+  let html = '<div class="canal-tabs-inner">';
+  CANALS.forEach((c, i) => {
+    const cut = getEffectiveCut(c.id);
+    let total = 0;
+    c.areas.forEach(a => { total += getAreaCFS(a, cut); });
+    const order = total > 0 ? Math.ceil(total) : 0;
+    const active = (i === state.mobileCanal) ? ' active' : '';
+    const shortName = c.name.replace(' Canal','').replace(' Lateral','');
+    html += `<button class="canal-tab${active}" data-tab-index="${i}">
+      ${shortName}
+      <span class="tab-order">${order}</span>
+    </button>`;
+  });
+  html += '</div>';
+  tabBar.innerHTML = html;
+
+  // Bind tab clicks
+  tabBar.querySelectorAll('.canal-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.mobileCanal = parseInt(btn.dataset.tabIndex);
+      saveState();
+      // Update tab active state
+      tabBar.querySelectorAll('.canal-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      applyMobileVisibility();
+    });
+  });
+}
+
+function applyMobileVisibility() {
+  if (!isMobile()) return;
+  const columns = document.querySelectorAll('.canal-column');
+  columns.forEach((col, i) => {
+    col.classList.toggle('mobile-active', i === state.mobileCanal);
+  });
+}
+
+function updateMobileTabOrders() {
+  const tabs = document.querySelectorAll('.canal-tab .tab-order');
+  CANALS.forEach((c, i) => {
+    const cut = getEffectiveCut(c.id);
+    let total = 0;
+    c.areas.forEach(a => { total += getAreaCFS(a, cut); });
+    const order = total > 0 ? Math.ceil(total) : 0;
+    if (tabs[i]) tabs[i].textContent = order;
+  });
+}
+
+function renderSummary() {
+  const bar = document.getElementById('summary-bar');
+  let html = '';
+  CANALS.forEach(c => {
+    const cut = getEffectiveCut(c.id);
+    let total = 0;
+    c.areas.forEach(a => { total += getAreaCFS(a, cut); });
+    const order = total > 0 ? Math.ceil(total) : 0;
+    html += `<div class="summary-item">
+      <span class="s-canal">${c.name.replace(' Canal','').replace(' Lateral','')}</span>
+      <span class="s-total">${total.toFixed(2)}</span>
+      <span class="s-order">${order} CFS</span>
+    </div>`;
+  });
+  html += '<div class="summary-spacer"></div>';
+  html += '<button class="copy-btn" id="copy-btn">📋 Copy Order</button>';
+  bar.innerHTML = html;
+
+  document.getElementById('copy-btn').addEventListener('click', copyOrder);
+}
+
+function updateCutButtons() {
+  document.querySelectorAll('.cut-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.cut) === state.waterCut);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FAST UPDATE — recalc CFS values without full re-render
+   ═══════════════════════════════════════════════════════════════ */
+function updateAllCFS() {
+  // Helper: find which canal an area belongs to
+  function findCanalForArea(areaId) {
+    for (const c of CANALS) {
+      for (const a of c.areas) { if (a.id === areaId) return c; }
+    }
+    return null;
+  }
+
+  // Update each checkbox CFS display
+  document.querySelectorAll('input[data-type="checkbox"]').forEach(inp => {
+    const id = inp.dataset.id;
+    const checked = state.checkboxes[id] || false;
+    const cb = findCheckbox(id);
+    if (!cb) return;
+    // Find the canal this checkbox belongs to for correct cut
+    const areaCard = inp.closest('.area-card');
+    const canalCol = inp.closest('.canal-column');
+    const canalId = canalCol ? canalCol.dataset.canalId : null;
+    const cut = canalId ? getEffectiveCut(canalId) : state.waterCut;
+    const cfsVal = checked ? cfs(cb.gpm, cut) : 0;
+    const cfsEl = document.querySelector(`[data-cfs-id="${id}"]`);
+    if (cfsEl) cfsEl.textContent = cfsVal.toFixed(2);
+
+    // Update row active state
+    const row = inp.closest('.ctrl-row');
+    if (row) row.classList.toggle('active', checked);
+  });
+
+  // Update each dropdown CFS display
+  document.querySelectorAll('select[data-type="dropdown"]').forEach(sel => {
+    const id = sel.dataset.id;
+    const idx = state.dropdowns[id] || 0;
+    const dd = findDropdown(id);
+    if (!dd) return;
+    const canalCol = sel.closest('.canal-column');
+    const canalId = canalCol ? canalCol.dataset.canalId : null;
+    const cut = canalId ? getEffectiveCut(canalId) : state.waterCut;
+    const activeOpt = idx > 0 ? dd.options[idx-1] : null;
+    const cfsVal = activeOpt ? cfs(activeOpt.gpm, cut) : 0;
+    const cfsEl = document.querySelector(`[data-cfs-id="${id}"]`);
+    if (cfsEl) cfsEl.textContent = cfsVal.toFixed(2);
+
+    const row = sel.closest('.dropdown-row');
+    if (row) row.classList.toggle('active', idx > 0);
+  });
+
+  // Update area CFS badges and active states
+  CANALS.forEach(canal => {
+    const cut = getEffectiveCut(canal.id);
+    canal.areas.forEach(area => {
+      const areaCFS = getAreaCFS(area, cut);
+      const badge = document.querySelector(`[data-area-cfs="${area.id}"]`);
+      if (badge) {
+        badge.textContent = areaCFS.toFixed(2) + ' CFS';
+        badge.className = areaCFS > 0 ? 'area-cfs-badge' : 'area-cfs-badge zero';
+      }
+      const card = document.getElementById(`area_${area.id}`);
+      if (card) {
+        const active = isAreaActive(area);
+        card.classList.toggle('has-active', active);
+        // Removed auto-expand — user manually opens/closes tabs
+      }
+    });
+  });
+
+  // Update canal totals
+  CANALS.forEach(canal => {
+    const cut = getEffectiveCut(canal.id);
+    let total = 0;
+    canal.areas.forEach(a => { total += getAreaCFS(a, cut); });
+    const order = total > 0 ? Math.ceil(total) : 0;
+    const totalEl = document.querySelector(`[data-canal-total="${canal.id}"]`);
+    const orderEl = document.querySelector(`[data-canal-order="${canal.id}"]`);
+    if (totalEl) totalEl.textContent = total.toFixed(2);
+    if (orderEl) orderEl.textContent = `Order: ${order} CFS`;
+  });
+
+  renderSummary();
+  updateMobileTabOrders();
+}
+
+function findCheckbox(id) {
+  for (const canal of CANALS) {
+    for (const area of canal.areas) {
+      for (const cb of area.shared.checkboxes) { if (cb.id === id) return cb; }
+      for (const cb of area.standard.checkboxes) { if (cb.id === id) return cb; }
+      if (area.solidSet) {
+        for (const cb of area.solidSet.checkboxes) { if (cb.id === id) return cb; }
+      }
+    }
+  }
+  return null;
+}
+
+function findDropdown(id) {
+  for (const canal of CANALS) {
+    for (const area of canal.areas) {
+      for (const dd of area.shared.dropdowns) { if (dd.id === id) return dd; }
+      for (const dd of area.standard.dropdowns) { if (dd.id === id) return dd; }
+      if (area.solidSet) {
+        for (const dd of area.solidSet.dropdowns) { if (dd.id === id) return dd; }
+      }
+    }
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EVENT BINDING
+   ═══════════════════════════════════════════════════════════════ */
+function bindEvents() {
+  // Area header click — toggle expand
+  document.querySelectorAll('[data-toggle-area]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      // Don't toggle if clicking the solid set toggle
+      if (e.target.closest('.ss-toggle-wrap')) return;
+      const areaId = el.dataset.toggleArea;
+      const card = document.getElementById(`area_${areaId}`);
+      const isExpanded = card.classList.contains('expanded');
+      card.classList.toggle('expanded');
+      state.expanded[areaId] = !isExpanded;
+      saveState();
+    });
+  });
+
+  // Checkbox changes
+  document.querySelectorAll('input[data-type="checkbox"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      state.checkboxes[inp.dataset.id] = inp.checked;
+      saveState();
+      updateAllCFS();
+    });
+  });
+
+  // Dropdown changes
+  document.querySelectorAll('select[data-type="dropdown"]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      state.dropdowns[sel.dataset.id] = parseInt(sel.value);
+      saveState();
+      updateAllCFS();
+    });
+  });
+
+  // Solid set toggles
+  document.querySelectorAll('input[data-type="solidset"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const areaId = inp.dataset.areaId;
+      state.solidSets[areaId] = inp.checked;
+
+      // Clear mode-specific selections (preserve shared)
+      const area = findArea(areaId);
+      if (area) {
+        clearAreaSelections(area);
+      }
+
+      saveState();
+      // Need full re-render for this area since controls change
+      renderAll();
+    });
+  });
+
+  // Select All toggles
+  document.querySelectorAll('input[data-type="selectall"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const areaId = inp.dataset.areaId;
+      const area = findArea(areaId);
+      if (!area) return;
+      const isSS = state.solidSets[areaId] || false;
+      const modeSection = isSS ? area.solidSet : area.standard;
+      if (!modeSection) return;
+      const checked = inp.checked;
+      modeSection.checkboxes.forEach(cb => {
+        if (checked) { state.checkboxes[cb.id] = true; }
+        else { delete state.checkboxes[cb.id]; }
+      });
+      saveState();
+      renderAll();
+    });
+  });
+
+  // Per-canal water cut override
+  document.querySelectorAll('.canal-cut-override').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const canalId = sel.dataset.canalCut;
+      const val = sel.value;
+      if (val === '') {
+        delete state.canalCuts[canalId];
+      } else {
+        state.canalCuts[canalId] = parseInt(val);
+      }
+      saveState();
+      renderAll();
+    });
+    // Stop click from propagating to canal header
+    sel.addEventListener('click', e => e.stopPropagation());
+  });
+}
+
+function findArea(areaId) {
+  for (const canal of CANALS) {
+    for (const area of canal.areas) {
+      if (area.id === areaId) return area;
+    }
+  }
+  return null;
+}
+
+function clearAreaSelections(area) {
+  // Only clear mode-specific selections (preserve shared controls like pivots/wheel lines)
+  // Clear standard
+  area.standard.checkboxes.forEach(cb => { delete state.checkboxes[cb.id]; });
+  area.standard.dropdowns.forEach(dd => { delete state.dropdowns[dd.id]; });
+  // Clear solid set
+  if (area.solidSet) {
+    area.solidSet.checkboxes.forEach(cb => { delete state.checkboxes[cb.id]; });
+    area.solidSet.dropdowns.forEach(dd => { delete state.dropdowns[dd.id]; });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER EVENTS
+   ═══════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.cut-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.waterCut = parseInt(btn.dataset.cut);
+    saveState();
+    updateCutButtons();
+    updateAllCFS();
+  });
+});
+
+document.getElementById('clear-all-btn').addEventListener('click', () => {
+  state.checkboxes = {};
+  state.dropdowns = {};
+  state.solidSets = {};
+  // Keep water cut and expanded state
+  saveState();
+  renderAll();
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   COPY ORDER
+   ═══════════════════════════════════════════════════════════════ */
+function copyOrder() {
+  const globalCut = state.waterCut;
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  let lines = [];
+  lines.push(`Johnson Farms Water Order – ${today}`);
+  lines.push(`Water Cut: ${globalCut} GPM/CFS`);
+  lines.push('');
+
+  CANALS.forEach(canal => {
+    const cut = getEffectiveCut(canal.id);
+    let total = 0;
+    canal.areas.forEach(a => { total += getAreaCFS(a, cut); });
+    const order = total > 0 ? Math.ceil(total) : 0;
+    const cutNote = (cut !== globalCut) ? ` [${cut} GPM]` : '';
+    lines.push(`${canal.name}${cutNote}: ${total.toFixed(2)} CFS → Order ${order} CFS`);
+  });
+
+  lines.push('');
+  lines.push('Fields Running:');
+
+  CANALS.forEach(canal => {
+    const cut = getEffectiveCut(canal.id);
+    canal.areas.forEach(area => {
+      const isSS = state.solidSets[area.id] || false;
+
+      // Shared checkboxes
+      if (area.shared) {
+        area.shared.checkboxes.forEach(cb => {
+          if (state.checkboxes[cb.id]) {
+            lines.push(`  ${cb.name} – ${cfs(cb.gpm, cut).toFixed(2)} CFS`);
+          }
+        });
+        area.shared.dropdowns.forEach(dd => {
+          const idx = state.dropdowns[dd.id] || 0;
+          if (idx > 0) {
+            const opt = dd.options[idx-1];
+            lines.push(`  ${dd.label}: ${opt.name} – ${cfs(opt.gpm, cut).toFixed(2)} CFS`);
+          }
+        });
+      }
+
+      const modeSection = isSS ? area.solidSet : area.standard;
+      if (modeSection) {
+        modeSection.checkboxes.forEach(cb => {
+          if (state.checkboxes[cb.id]) {
+            lines.push(`  ${cb.name}${isSS ? ' (SS)' : ''} – ${cfs(cb.gpm, cut).toFixed(2)} CFS`);
+          }
+        });
+        modeSection.dropdowns.forEach(dd => {
+          const idx = state.dropdowns[dd.id] || 0;
+          if (idx > 0) {
+            const opt = dd.options[idx-1];
+            lines.push(`  ${dd.label}: ${opt.name}${isSS ? ' (SS)' : ''} – ${cfs(opt.gpm, cut).toFixed(2)} CFS`);
+          }
+        });
+      }
+    });
+  });
+
+  const text = lines.join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Order copied to clipboard!');
+    const btn = document.getElementById('copy-btn');
+    btn.classList.add('copied');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.textContent = '📋 Copy Order';
+    }, 2000);
+  }).catch(() => {
+    // Fallback for file:// protocol
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('Order copied to clipboard!');
+    } catch(e) {
+      showToast('Could not copy — please use Ctrl+C');
+    }
+    document.body.removeChild(ta);
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DATE DISPLAY
+   ═══════════════════════════════════════════════════════════════ */
+function updateDate() {
+  const d = new Date();
+  document.getElementById('header-date').textContent = d.toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════ */
+loadState();
+updateDate();
+renderAll();
+
+// Handle resize: switch between desktop (all visible) and mobile (tabs) layout
+window.addEventListener('resize', () => {
+  const columns = document.querySelectorAll('.canal-column');
+  if (isMobile()) {
+    applyMobileVisibility();
+  } else {
+    // Desktop: show all canals, remove mobile-active class
+    columns.forEach(col => {
+      col.classList.remove('mobile-active');
+      col.style.display = '';
+    });
+  }
+});
+</script>
+</body>
+</html>
