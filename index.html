@@ -636,20 +636,21 @@ label.ss-toggle {
   .app-header {
     position: relative;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: 6px;
+    padding: 8px 12px;
     top: auto;
   }
-  .app-header h1 { font-size: 1.1rem; }
-  .header-date { margin-left: 0; font-size: 0.78rem; }
-  .cut-group { flex-wrap: wrap; justify-content: center; }
-  .cut-btn { padding: 6px 12px; font-size: 0.82rem; }
-  .clear-btn { padding: 6px 14px; font-size: 0.8rem; }
+  .app-header h1 { font-size: 1rem; }
+  .header-date { margin-left: 0; font-size: 0.72rem; }
+  .header-controls { gap: 8px; }
+  .cut-group { flex-wrap: wrap; justify-content: center; gap: 4px; }
+  .cut-btn { padding: 5px 10px; font-size: 0.78rem; }
+  .clear-btn { padding: 5px 12px; font-size: 0.76rem; }
 
   /* Single-column layout, hide non-active canals */
   .main-content {
     grid-template-columns: 1fr;
-    padding-bottom: 130px;
+    padding-bottom: 50px;
   }
   .canal-column {
     min-width: 0;
@@ -716,23 +717,31 @@ label.ss-toggle {
     transform: translateX(20px);
   }
 
-  /* Summary bar for mobile */
+  /* Summary bar for mobile — compact */
   .summary-bar {
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 14px;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 6px 12px;
+    align-items: center;
+    justify-content: center;
   }
   .summary-item {
-    justify-content: space-between;
+    gap: 4px;
+  }
+  .summary-item .s-canal {
+    font-size: 0.65rem;
+  }
+  .summary-item .s-total {
+    display: none;
+  }
+  .summary-item .s-order {
+    font-size: 0.85rem;
+    padding: 1px 6px;
   }
   .summary-spacer { display: none; }
   .copy-btn {
-    width: 100%;
-    padding: 12px;
-    font-size: 1rem;
-    text-align: center;
-    margin-top: 4px;
+    display: none;
   }
 }
 
@@ -1529,7 +1538,7 @@ function isAreaActive(area) {
 function renderArea(area, cut) {
   const isSS = state.solidSets[area.id] || false;
   const active = isAreaActive(area);
-  const expanded = state.expanded[area.id] !== undefined ? state.expanded[area.id] : true;
+  const expanded = state.expanded[area.id] || false;
   const areaCFS = getAreaCFS(area, cut);
 
   let classes = 'area-card';
