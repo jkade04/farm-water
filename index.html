@@ -755,7 +755,153 @@ label.ss-toggle {
 .canal-areas::-webkit-scrollbar { width: 4px; }
 .canal-areas::-webkit-scrollbar-track { background: transparent; }
 .canal-areas::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
-</style>
+
+/* ═══════════════════════════════════════════
+   SETTINGS DRAWER (mobile)
+   ═══════════════════════════════════════════ */
+.settings-btn {
+  display: none; /* hidden on desktop */
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color var(--transition);
+}
+.settings-btn:hover, .settings-btn:active {
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .settings-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+  }
+}
+
+.settings-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 500;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.settings-backdrop.open {
+  display: block;
+  opacity: 1;
+}
+
+.settings-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1e2128;
+  color: #fff;
+  border-radius: 16px 16px 0 0;
+  z-index: 501;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 75vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.settings-panel.open {
+  transform: translateY(0);
+}
+
+.settings-handle {
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  margin: 10px auto 6px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 18px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.settings-header h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.settings-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.settings-close:active { color: #fff; }
+
+.settings-section {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.settings-section:last-child { border-bottom: none; }
+.settings-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.85);
+}
+.settings-row-hint {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.35);
+  margin-top: 2px;
+}
+.settings-row select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 100px;
+  text-align: center;
+}
+.settings-row select option {
+  background: #2a2a2a;
+  color: #fff;
+}
 </head>
 <body>
 
@@ -773,7 +919,19 @@ label.ss-toggle {
     <button class="clear-btn" id="clear-all-btn">Clear All</button>
   </div>
   <div class="header-date" id="header-date"></div>
+  <button class="settings-btn" id="settings-btn" aria-label="Settings">⚙</button>
 </header>
+
+<!-- SETTINGS DRAWER (mobile) -->
+<div class="settings-backdrop" id="settings-backdrop"></div>
+<div class="settings-panel" id="settings-panel">
+  <div class="settings-handle"></div>
+  <div class="settings-header">
+    <h2>⚙ Settings</h2>
+    <button class="settings-close" id="settings-close">✕</button>
+  </div>
+  <div id="settings-content"></div>
+</div>
 
 <!-- MOBILE CANAL TABS (hidden on desktop, shown on mobile) -->
 <nav class="canal-tabs" id="canal-tabs"></nav>
@@ -2089,6 +2247,77 @@ function updateDate() {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SETTINGS DRAWER
+   ═══════════════════════════════════════════════════════════════ */
+function openSettings() {
+  renderSettingsContent();
+  document.getElementById('settings-backdrop').classList.add('open');
+  // Small delay for CSS transition
+  requestAnimationFrame(() => {
+    document.getElementById('settings-panel').classList.add('open');
+  });
+}
+
+function closeSettings() {
+  document.getElementById('settings-panel').classList.remove('open');
+  setTimeout(() => {
+    document.getElementById('settings-backdrop').classList.remove('open');
+  }, 300);
+}
+
+function renderSettingsContent() {
+  const globalCut = state.waterCut;
+  const cutOptions = [450, 400, 350, 300];
+  let html = '';
+
+  // Canal Cut Overrides section
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">Canal Water Cut Overrides</div>';
+  CANALS.forEach(c => {
+    const hasCanalOverride = state.canalCuts[c.id] !== undefined;
+    const shortName = c.name.replace(' Canal','').replace(' Lateral','');
+    html += `<div class="settings-row">
+      <div>
+        <div class="settings-row-label">${shortName}</div>
+        <div class="settings-row-hint">${hasCanalOverride ? c.name + ' → ' + state.canalCuts[c.id] + ' GPM' : 'Using global cut'}</div>
+      </div>
+      <select data-settings-canal="${c.id}">
+        <option value=""${!hasCanalOverride ? ' selected' : ''}>Global (${globalCut})</option>`;
+    cutOptions.forEach(v => {
+      const sel = (hasCanalOverride && state.canalCuts[c.id] === v) ? ' selected' : '';
+      html += `<option value="${v}"${sel}>${v} GPM</option>`;
+    });
+    html += `</select></div>`;
+  });
+  html += '</div>';
+
+  // Future sections can be added here
+
+  document.getElementById('settings-content').innerHTML = html;
+
+  // Bind change handlers
+  document.querySelectorAll('[data-settings-canal]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const canalId = sel.dataset.settingsCanal;
+      const val = sel.value;
+      if (val === '') {
+        delete state.canalCuts[canalId];
+      } else {
+        state.canalCuts[canalId] = parseInt(val);
+      }
+      saveState();
+      renderAll();
+      renderSettingsContent(); // refresh hints
+    });
+  });
+}
+
+// Bind settings open/close
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+document.getElementById('settings-close').addEventListener('click', closeSettings);
+document.getElementById('settings-backdrop').addEventListener('click', closeSettings);
 
 /* ═══════════════════════════════════════════════════════════════
    INIT
